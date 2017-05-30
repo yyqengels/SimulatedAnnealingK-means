@@ -1,0 +1,111 @@
+function [m_pattern,m_center]=monikjunzhi(m_pattern,patternnum,distype,centernum,iternum,tn,ts)
+for i=1:patternnum
+    m_pattern(i).distance=inf;
+    m_pattern(i).category=-1;
+end
+randpattern=randperm(patternnum);
+for i=1:centernum
+    m_pattern(randpattern(i)).category=i;
+    m_pattern(randpattern(i)).distance=0;
+    m_center(i).feature=m_pattern(randpattern(i)).feature;
+    m_center(i).index=i;
+    m_center(i).patternnum=1;
+end
+counter=0;
+change=1;
+while(counter<iternum&&change~=0)
+    counter=counter+1;
+    change=0;
+    for i=1:patternnum
+        index=-1;
+        distance=inf;
+        for j=1:centernum
+            tempdis=GetDistance(m_pattern(i),m_center(j),distype);
+            if(distance>tempdis)
+                distance=tempdis;
+                index=j;
+            end
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        if(m_pattern(i).category==index)
+            m_pattern(i).distance=distance;
+        else
+            oldindex=m_pattern(i).category;
+            m_pattern(i).category=index;
+            m_pattern(i).distance=distance;
+            if(oldindex~=-1)
+                m_center(oldindex)=CalCenter(m_center(oldindex),m_pattern,patternnum);
+            end
+            m_center(index)=CalCenter(m_center(index),m_pattern,patternnum);
+            change=1;
+        end
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+aimfunc=0;
+for j=1:patternnum
+    aimfunc=aimfunc+GetDistance(m_pattern(j),m_center(m_pattern(j).category),distype);
+end
+aimold=aimfunc;
+oldcenter=m_center;
+oldpattern=m_pattern;
+tc=1;
+bestaim=aimold;
+bestpattern=m_pattern;
+markovlength=1000;
+tb=0;
+t=aimfunc;
+%str=('kjunzhisuanfa,zuiyoumubiaohanshuzhi:'num2str(bestaim));
+%disp(str);
+while(tc<=tn&&bestaim>0.1)
+    for inner=1:markovlength
+        p=fix(rand*patternnum+1);
+        t=fix(rand*(centernum-1)+1);
+        if(m_pattern(p).category+t>centernum)
+            m_pattern(p).category=m_pattern(p).category+t-centernum;
+        else
+            m_pattern(p).category=m_pattern(p).category+t;
+        end
+        for i=1:centernum
+            m_center(i)=CalCenter(m_center(i),m_pattern,patternnum);
+        end
+        aimfunc=0;
+        for j=1:patternnum
+            aimfunc=aimfunc+GetDistance(m_pattern(j),m_center(m_pattern(j).category),distype);
+        end
+        e=aimfunc-aimold;
+        if(aimfunc<bestaim)
+            bestaim=aimfunc;
+            bestpattern=m_pattern;
+            tb=tc;
+        end
+        if(bestaim==0)
+            break;
+        end
+        if(e<0)
+            aimold=aimfunc;
+        else
+ %           k=exp(-e/t);
+            if(rand<exp(-e/t))
+                aimold=aimfunc;
+            else
+                m_pattern=oldpattern;
+                m_center=oldcenter;
+            end
+        end
+    end
+    t=t*ts;
+    if(t==0)
+        break;
+    end
+    tc=tc+1;
+    if(tc-tb>tn/2)
+        break;
+    end
+    %str=('yituihuo'num2str(tc-1)'ci';'zuiyoumubiaohanshuzhi:'num2str(bestaim));
+    %disp(str);
+    m_pattern=bestpattern;
+end
+m_pattern=bestpattern;
+%str=('dangqianzuiyoujiechuxianshi,yituihuocishuwei:'num2str(tb));
+%msgbox(str,'model');
